@@ -1,15 +1,12 @@
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 from nltk.corpus import stopwords
-from ast import literal_eval
 import re, os, sys, nltk
-import tensorflow as tf
 from os import environ
 import pandas as pd
 
 path = os.path.abspath(__file__)
 path = path[:path.find('/libs')]
 sys.path.insert(1, path)
-from libs.extract_load_data import ExtractLoadSqLite as extl
 nltk.download('stopwords')
 
 class PreProcessing:
@@ -43,9 +40,8 @@ class PreProcessing:
     """
     def __init__(self) -> None:
         path = 'neuralmind/bert-base-portuguese-cased'
-        self.tokenizer = BertTokenizer.from_pretrained(path, do_lower_case=False)
+        self.tokenizer = AutoTokenizer.from_pretrained(path)
 
-        self.__extract = extl()
 
         self.abbreviations = {'ngm': 'Ninguém', 'sdds': 'saudades', 'sdd': 'saudade', 'tao': 'tão', 
                  'td': 'tudo', 'qd': 'quando', 'flw': 'falou', 'nte': 'noite', 'mds': 'meu deus',
@@ -78,7 +74,7 @@ class PreProcessing:
                             r'\b[k]{2,}\b': "risada"}
     def decode_ids(self, token_ids):
         tokenizer = self.tokenizer
-        return tokenizer.convert_ids_to_tokens(token_ids)
+        return tokenizer.convert_ids_to_tokens(token_ids, skip_special_tokens=True)
 
     def change_abbreviations_sentence(self, txt) -> str:
         """
@@ -254,12 +250,14 @@ class PreProcessing:
         return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(txt))
 
 
-    def convert_to_tokenizer(self, dataframe, column) -> list:
-        return [self._encode_sentence(sentence) for sentence in dataframe[column]]
+    def convert_to_tokenizer(self, text, max_length=64) -> list:
+        inputs = self.tokenizer(text, max_length=max_length, padding='max_length', truncation=True, return_tensors='tf')
+        return inputs['input_ids'].numpy().flatten()
         
 
     def shuffled_dataframe(self, dataframe) -> pd.DataFrame:
         return dataframe.sample(frac=1.0, random_state=42).reset_index(drop=True)
+
 
     def remove_stopwords_sentence(self, txt) -> str:
         """
